@@ -24,42 +24,45 @@ class LocalRetriever:
     _CORPUS: List[Dict[str, Any]] = [
         {
             "source": "incident_504_timeouts.txt",
-            "text": "An API gateway started returning 504 errors due to an
-upstream
-service being overloaded. The incident report includes timestamps,
-request headers, and user impact information.",
+            "text": (
+                "An API gateway started returning 504 errors due to an upstream "
+                "service being overloaded. The incident report includes timestamps, "
+                "request headers, and user impact information."
+            ),
             "metadata": {"doc_type": "incident"},
             "keywords": ["504", "timeout", "api gateway", "intermittent"],
         },
         {
             "source": "incident_retry_storm.txt",
-            "text": "A cascade of retries overwhelmed the database and
-caused
-multiple services to fail. The incident timeline shows the initial
-event,
-retry configuration, and mitigation steps.",
+            "text": (
+                "A cascade of retries overwhelmed the database and caused "
+                "multiple services to fail. The incident timeline shows the initial "
+                "event, retry configuration, and mitigation steps."
+            ),
             "metadata": {"doc_type": "incident", "tags": ["retries"]},
             "keywords": ["retry", "retry storm", "backoff", "cascading"],
         },
         {
             "source": "runbook_db_latency.txt",
-            "text": "When database query latency spikes, check indexes,
-review
-slow query logs, and monitor connection pool usage. This runbook also
-covers
-common causes such as locks and long-running transactions.",
+            "text": (
+                "When database query latency spikes, check indexes, review "
+                "slow query logs, and monitor connection pool usage. This runbook also "
+                "covers common causes such as locks and long-running transactions."
+            ),
             "metadata": {"doc_type": "runbook", "tags": ["db"]},
             "keywords": ["database", "db", "query", "latency", "slow"],
         },
         {
             "source": "runbook_tls_dns.txt",
-            "text": "Verify TLS certificates, DNS resolution, and network
-paths
-when encountering handshake failures. This runbook walks through steps to
-validate configuration and rotation procedures.",
+            "text": (
+                "Verify TLS certificates, DNS resolution, and network paths "
+                "when encountering handshake failures. This runbook walks through steps to "
+                "validate configuration and rotation procedures."
+            ),
             "metadata": {"doc_type": "runbook", "tags": ["tls"]},
             "keywords": ["tls", "dns", "handshake", "certificate"],
         },
+
     ]
 
     def __init__(self) -> None:
@@ -109,13 +112,19 @@ validate configuration and rotation procedures.",
             if not matches_filters(entry):
                 continue
 
-            score = 0.0
-            for kw in entry.get("keywords", []):
-                if kw in base:
-                    score = 0.9
-                    break
-            if score == 0.0:
-                score = 0.1
+            # count how many keyword phrases appear in the query text
+            keywords = entry.get("keywords", [])
+            match_count = sum(1 for kw in keywords if kw in base)
+
+            if match_count == 0:
+                # no obvious signal, give a small default score so entry still
+                # appears but ranks lower than anything with a hit
+                score = 0.05
+            else:
+                # normalize by number of keywords so that documents with more
+                # associated terms don't automatically dominate
+                score = match_count / len(keywords)
+
             candidates.append(
                 {"source": entry["source"], "text": entry["text"], "score": score}
             )
